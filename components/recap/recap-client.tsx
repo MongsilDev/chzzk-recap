@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -309,8 +309,21 @@ type RecapClientProps = {
 };
 
 export function RecapClient({ data, source = "default", className }: RecapClientProps) {
-  useMemo(() => {
-    void chartJsRegister();
+  const [chartReady, setChartReady] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        await chartJsRegister();
+        if (mounted) setChartReady(true);
+      } catch (err) {
+        console.error("Chart.js 초기화 실패:", err);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const watchStats = useMemo(
@@ -351,7 +364,7 @@ export function RecapClient({ data, source = "default", className }: RecapClient
             ))}
           </div>
 
-          {watchStats.rows.length > 0 && (
+          {watchStats.rows.length > 0 && chartReady && (
             <div className="pt-4 space-y-4">
               <WatchPie
                 rows={watchStats.rows.map((r) => ({
