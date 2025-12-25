@@ -10,7 +10,7 @@ const csp = [
   "object-src 'none'",
   // dev 환경에서는 Next/Turbopack가 inline/eval 스크립트를 사용하므로 완화
   isProd
-    ? "script-src 'self'"
+    ? "script-src 'self' 'unsafe-inline' blob:"
     : "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
   "style-src 'self' 'unsafe-inline'",
   isProd
