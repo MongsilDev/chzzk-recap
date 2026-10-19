@@ -346,7 +346,7 @@ export function RecapClient({ data, source = "default", className }: RecapClient
       <Card>
         <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>올해 내가 가장 본 채널</CardTitle>
+            <CardTitle>올해 내가 가장 많이 본 채널</CardTitle>
             <CardDescription>
               입력한 JSON을 바탕으로 순위를 정리했어요.
             </CardDescription>
@@ -355,7 +355,9 @@ export function RecapClient({ data, source = "default", className }: RecapClient
         <CardContent className="space-y-3">
           {rankings.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              아직 데이터가 없어요. JSON을 넣어 주세요.
+              아직 데이터가 없어요.
+              <br />
+              JSON을 넣어 주세요.
             </p>
           )}
           <div className="space-y-3">
