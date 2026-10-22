@@ -1,7 +1,6 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -10,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import dynamic from "next/dynamic";
+import type { TooltipItem } from "chart.js";
 import { cn } from "@/lib/utils";
 import type { WatchRanking, YearEndResponse } from "@/types/chzzk";
 
@@ -38,29 +38,17 @@ const chartJsRegister = async () => {
     'var(--font-nanum-gothic), var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif';
 };
 
-function formatDurationPair(minutes: number) {
-  const days = Math.floor(minutes / (60 * 24));
-  const hours = Math.floor((minutes % (60 * 24)) / 60);
+function formatDuration(minutes: number) {
+  const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
-  const totalHours = Math.floor(minutes / 60);
-
-  const main =
-    days > 0
-      ? `${days}일 ${hours}시간 ${mins}분`
-      : hours > 0
-        ? `${hours}시간 ${mins}분`
-        : `${mins}분`;
-
-  const alt = days > 0 ? `${totalHours}시간 ${mins}분` : undefined;
-
-  return { main, alt };
+  return hours > 0 ? `${hours}시간 ${mins}분` : `${mins}분`;
 }
 
 function formatNumber(num: number) {
   return num.toLocaleString("ko-KR");
 }
 
-type PieRow = { label: string; value: number; percent?: number };
+type PieRow = { label: string; value: number };
 
 function WatchPie({ rows }: { rows: PieRow[] }) {
   if (!rows.length) return null;
@@ -99,32 +87,12 @@ function WatchPie({ rows }: { rows: PieRow[] }) {
         titleColor: "#f8fafc",
         bodyColor: "#f8fafc",
         callbacks: {
-          title: (ctx: any) => {
-            const label = ctx[0]?.label ?? "";
-            return label;
-          },
-          label: (ctx: any) => {
-            const val = ctx.raw ?? 0;
-            const percent = ctx.parsed !== undefined && ctx.dataset && ctx.dataset.data
-              ? (() => {
-                  const total = ctx.dataset.data.reduce(
-                    (sum: number, v: number) => sum + v,
-                    0,
-                  );
-                  return total > 0 ? (val / total) * 100 : 0;
-                })()
-              : 0;
-            const hours = Math.floor(val / 60);
-            const days = Math.floor(hours / 24);
-            const remHours = hours % 24;
-            const mins = val % 60;
-            const duration =
-              days > 0
-                ? `${days}일 ${remHours}시간 ${mins}분`
-                : hours > 0
-                  ? `${hours}시간 ${mins}분`
-                  : `${mins}분`;
-            return ` ${duration} (${percent.toFixed(1)}%)`;
+          title: (items: TooltipItem<"pie">[]) => items[0]?.label ?? "",
+          label: (ctx: TooltipItem<"pie">) => {
+            const val = Number(ctx.raw ?? 0);
+            const total = ctx.dataset.data.reduce((sum, v) => sum + v, 0);
+            const percent = total > 0 ? (val / total) * 100 : 0;
+            return ` ${formatDuration(val)} (${percent.toFixed(1)}%)`;
           },
         },
       },
@@ -134,46 +102,8 @@ function WatchPie({ rows }: { rows: PieRow[] }) {
     },
   };
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-6">
-        <div className="flex w-full flex-col gap-2 md:w-1/3">
-          {rows.map((row, idx) => (
-            <div
-              key={row.label}
-              className="flex flex-col gap-1 rounded-lg border border-muted/60 bg-card/60 px-3 py-2 text-sm text-foreground"
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                <span
-                  className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: colors[idx % colors.length] }}
-                  aria-hidden
-                />
-                <span className="truncate break-words leading-tight">{row.label}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span className="whitespace-nowrap">
-                  {(() => {
-                    const minutes = row.value;
-                    const hours = Math.floor(minutes / 60);
-                    const days = Math.floor(hours / 24);
-                    const remHours = hours % 24;
-                    const mins = minutes % 60;
-                    if (days > 0) return `${days}일 ${remHours}시간 ${mins}분`;
-                    if (hours > 0) return `${hours}시간 ${mins}분`;
-                    return `${mins}분`;
-                  })()}
-                </span>
-                {row.percent !== undefined ? (
-                  <span className="whitespace-nowrap">{row.percent.toFixed(1)}%</span>
-                ) : null}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="h-[26rem] w-full max-w-3xl flex items-center justify-center overflow-visible md:w-2/3">
-          <Pie data={data} options={options} />
-        </div>
-      </div>
+    <div className="mx-auto flex h-[26rem] w-full max-w-3xl items-center justify-center overflow-visible">
+      <Pie data={data} options={options} />
     </div>
   );
 }
@@ -184,24 +114,18 @@ function buildWatchStats(watchRankingList: WatchRanking[]) {
     0,
   );
   const rows = watchRankingList
-    .map((item) => {
-      const percent = total > 0 ? (item.totalWatchingTime / total) * 100 : 0;
-      return {
-        channelId: item.channelId,
-        channelName: item.channelName,
-        channelImageUrl: item.channelImageUrl,
-        totalWatchingTime: item.totalWatchingTime,
-        percent,
-      };
-    })
+    .map((item) => ({
+      channelId: item.channelId,
+      channelName: item.channelName,
+      channelImageUrl: item.channelImageUrl,
+      totalWatchingTime: item.totalWatchingTime,
+    }))
     .sort((a, b) => b.totalWatchingTime - a.totalWatchingTime);
 
   return { total, rows };
 }
 
 function RankingItem({ item }: { item: WatchRanking }) {
-  const watchTime = formatDurationPair(item.totalWatchingTime);
-
   return (
     <Card className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
       <div className="flex items-center gap-4">
@@ -217,36 +141,17 @@ function RankingItem({ item }: { item: WatchRanking }) {
             className="object-cover"
           />
         </div>
-        <div>
-          <p className="text-base font-semibold leading-tight truncate max-w-[240px] sm:max-w-xs">
-            {item.channelName}
-          </p>
-          <Button asChild variant="outline" size="sm" className="mt-1 h-8 px-3">
-            <a
-              href={`https://chzzk.naver.com/${item.channelId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              채널 바로가기
-            </a>
-          </Button>
-        </div>
+        <a
+          href={`https://chzzk.naver.com/${item.channelId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-base font-semibold leading-tight truncate max-w-[240px] sm:max-w-xs hover:underline"
+        >
+          {item.channelName}
+        </a>
       </div>
       <div className="grid w-full gap-2 text-sm text-muted-foreground sm:grid-cols-2 md:grid-cols-2 sm:max-w-md sm:ml-auto">
-        <span className="flex flex-col">
-          {watchTime.alt ? (
-            <span className="group inline-block cursor-help">
-              <span className="underline decoration-dotted decoration-muted-foreground/70 group-hover:hidden transition-opacity">
-                시청 시간: {watchTime.main}
-              </span>
-              <span className="hidden underline decoration-dotted decoration-muted-foreground/70 group-hover:inline transition-opacity">
-                시청 시간: {watchTime.alt}
-              </span>
-            </span>
-          ) : (
-            <span>시청 시간: {watchTime.main}</span>
-          )}
-        </span>
+        <span>시청 시간: {formatDuration(item.totalWatchingTime)}</span>
         <span>통나무 파워: {formatNumber(item.totalLogPowers)}</span>
         <span>클립 제작: {formatNumber(item.totalMakerClipCount)}</span>
         <span>클립 조회: {formatNumber(item.totalMakerClipPlayCount)}</span>
@@ -257,13 +162,11 @@ function RankingItem({ item }: { item: WatchRanking }) {
 
 function SummaryCards({ data }: { data: YearEndResponse }) {
   const { totalWatchingTime, totalLogPowers, segmentType } = data.content;
-  const totalWatch = formatDurationPair(totalWatchingTime);
   const summary = useMemo(
     () => [
       {
         title: "총 시청 시간",
-        value: totalWatch.main,
-        alt: totalWatch.alt,
+        value: formatDuration(totalWatchingTime),
       },
       {
         title: "총 통나무 파워",
@@ -274,7 +177,7 @@ function SummaryCards({ data }: { data: YearEndResponse }) {
         value: segmentType,
       },
     ],
-    [totalWatch.main, totalWatch.alt, totalLogPowers, segmentType],
+    [totalWatchingTime, totalLogPowers, segmentType],
   );
 
   return (
@@ -283,18 +186,7 @@ function SummaryCards({ data }: { data: YearEndResponse }) {
         <Card key={item.title}>
           <CardHeader className="pb-4">
             <CardDescription>{item.title}</CardDescription>
-            {item.alt ? (
-              <CardTitle className="text-2xl font-bold group inline-flex items-baseline gap-1 cursor-help">
-                <span className="group-hover:hidden underline decoration-dotted decoration-muted-foreground/70 transition-opacity">
-                  {item.value}
-                </span>
-                <span className="hidden group-hover:inline underline decoration-dotted decoration-muted-foreground/70 transition-opacity">
-                  {item.alt}
-                </span>
-              </CardTitle>
-            ) : (
-              <CardTitle className="text-2xl font-bold">{item.value}</CardTitle>
-            )}
+            <CardTitle className="text-2xl font-bold">{item.value}</CardTitle>
           </CardHeader>
         </Card>
       ))}
@@ -333,10 +225,10 @@ export function RecapClient({ data, source = "default", className }: RecapClient
 
   const rankings = useMemo(
     () =>
-      [...(data?.content?.watchRankingList ?? [])].sort(
+      [...data.content.watchRankingList].sort(
         (a, b) => a.ranking - b.ranking,
       ),
-    [data?.content?.watchRankingList],
+    [data.content.watchRankingList],
   );
 
   return (
@@ -344,21 +236,12 @@ export function RecapClient({ data, source = "default", className }: RecapClient
       <SummaryCards data={data} />
 
       <Card>
-        <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>올해 내가 가장 많이 본 채널</CardTitle>
-            <CardDescription>
-              입력한 JSON을 바탕으로 순위를 정리했어요.
-            </CardDescription>
-          </div>
+        <CardHeader>
+          <CardTitle>가장 많이 본 채널</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {rankings.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              아직 데이터가 없어요.
-              <br />
-              JSON을 넣어 주세요.
-            </p>
+            <p className="text-sm text-muted-foreground">시청 기록이 없습니다.</p>
           )}
           <div className="space-y-3">
             {rankings.map((item) => (
@@ -372,7 +255,6 @@ export function RecapClient({ data, source = "default", className }: RecapClient
                 rows={watchStats.rows.map((r) => ({
                   label: r.channelName,
                   value: r.totalWatchingTime,
-                  percent: r.percent,
                 }))}
               />
             </div>

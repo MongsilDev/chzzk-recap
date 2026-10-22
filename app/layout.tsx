@@ -24,7 +24,7 @@ const nanumGothic = Nanum_Gothic({
 
 export const metadata: Metadata = {
   title: "CHZZK RECAPS",
-  description: "치지직의 리캡을 확인할 수 있어요.",
+  description: "치지직 연말결산 시청 통계",
 };
 
 export default function RootLayout({

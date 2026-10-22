@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { RecapClient } from "@/components/recap/recap-client";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,71 +14,70 @@ export default function Home() {
   const [data, setData] = useState<YearEndResponse | null>(null);
   const [source, setSource] = useState<SourceType>("paste");
   const [rawInput, setRawInput] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ReactNode>(null);
 
   const handleApply = () => {
     setError(null);
     if (!rawInput.trim()) {
-      setError("JSON을 입력해 주세요.");
+      setError("JSON 페이지 내용을 복사해 붙여넣어주세요.");
       return;
     }
     try {
-      const parsed = yearEndSchema.parse(JSON.parse(rawInput));
+      const json = JSON.parse(rawInput);
+      // 로그아웃 상태 응답은 빈 목록에 segmentType null
+      if (json?.content?.segmentType === null && json.content.watchRankingList?.length === 0) {
+        setError("치지직에 로그인한 뒤 JSON 페이지를 다시 열어주세요.");
+        return;
+      }
+      const parsed = yearEndSchema.parse(json);
       setData({ ...parsed, source: "paste" });
       setSource("paste");
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(`JSON을 읽는 중 문제가 있어요: ${err.message}`);
-      } else {
-        setError("JSON을 읽는 중 문제가 있어요.");
-      }
+    } catch {
+      setError(
+        <>
+          치지직 연말결산 JSON이 아닙니다.
+          <br />
+          JSON 페이지 내용을 전부 복사해 다시 붙여넣어주세요.
+        </>,
+      );
     }
   };
 
   return (
     <main className="container space-y-8 py-12">
-      <header className="space-y-3">
-        <Badge variant="secondary" className="uppercase">
-          CHZZK RECAPS
-        </Badge>
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold leading-tight">CHZZK RECAPS</h1>
-          <p className="text-muted-foreground">
-            JSON을 넣으면 치지직 리캡을 바로 볼 수 있어요.
-          </p>
-        </div>
-      </header>
+      <h1 className="text-3xl font-bold leading-tight">CHZZK RECAPS</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>JSON 입력</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            아래 링크에서 JSON을 복사해 입력해 주세요.
-          </p>
+          <CardTitle>연말결산 JSON</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Textarea
-            placeholder="여기에 JSON을 입력해 주세요"
+            placeholder="JSON 페이지 내용을 복사해 붙여넣어주세요."
+            aria-label="연말결산 JSON"
             className="min-h-[120px]"
             value={rawInput}
             onChange={(e) => setRawInput(e.target.value)}
           />
           <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={handleApply}>JSON 적용하기</Button>
-            <Button asChild variant="outline">
-              <a
-                href="https://api.chzzk.naver.com/service/v1/year-end-users?year=2025"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                JSON 보러가기
-              </a>
-            </Button>
-            <Badge variant="secondary" className="whitespace-nowrap">
-              2024년 리캡을 보려면 링크의 2025를 2024로 변경해 주세요.
-            </Badge>
-            {error && <Badge variant="destructive">{error}</Badge>}
+            <Button onClick={handleApply}>적용</Button>
+            {[2025, 2024].map((year) => (
+              <Button key={year} asChild variant="outline">
+                <a
+                  href={`https://api.chzzk.naver.com/service/v1/year-end-users?year=${year}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {year} JSON
+                </a>
+              </Button>
+            ))}
           </div>
+          {error && (
+            <p className="rounded-md bg-destructive px-3 py-2 text-sm text-destructive-foreground">
+              {error}
+            </p>
+          )}
         </CardContent>
       </Card>
 
